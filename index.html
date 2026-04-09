@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QR Code Generator</title>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -87,6 +87,11 @@
     }
 
     #qrcode canvas, #qrcode img { border-radius: 8px; }
+
+    .download-buttons {
+      display: flex;
+      gap: 0.75rem;
+    }
 
     .download-btn {
       background: #10b981;
@@ -191,7 +196,10 @@
 
   <div class="qr-output" v-show="generated">
     <div id="qrcode"></div>
-    <button class="download-btn" @click="download">Download PNG</button>
+    <div class="download-buttons">
+      <button class="download-btn" @click="download">Download PNG</button>
+      <button class="download-btn" @click="downloadSvg">Download SVG</button>
+    </div>
   </div>
 </div>
 
@@ -203,7 +211,7 @@ createApp({
     const type = ref('url');
     const error = ref('');
     const generated = ref(false);
-    let qrInstance = null;
+    const currentPayload = ref('');
 
     const f = reactive({
       url: '', text: '',
@@ -217,7 +225,7 @@ createApp({
     function reset() {
       error.value = '';
       generated.value = false;
-      if (qrInstance) { qrInstance.clear(); qrInstance = null; }
+      currentPayload.value = '';
     }
 
     function buildPayload() {
@@ -265,17 +273,18 @@ createApp({
       if (err) { error.value = err; return; }
 
       generated.value = true;
+      currentPayload.value = payload;
       await nextTick();
 
       const el = document.getElementById('qrcode');
       el.innerHTML = '';
-      qrInstance = new QRCode(el, {
-        text: payload,
+      const canvas = document.createElement('canvas');
+      el.appendChild(canvas);
+      await QRCode.toCanvas(canvas, payload, {
         width: 256,
-        height: 256,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
       });
     }
 
@@ -288,7 +297,25 @@ createApp({
       a.click();
     }
 
-    return { type, f, error, generated, reset, generate, download };
+    async function downloadSvg() {
+      if (!currentPayload.value) return;
+      const svg = await QRCode.toString(currentPayload.value, {
+        type: 'svg',
+        width: 256,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      });
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.download = 'qrcode.svg';
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    return { type, f, error, generated, reset, generate, download, downloadSvg };
   }
 }).mount('#app');
 </script>
