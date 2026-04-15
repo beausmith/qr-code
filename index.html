@@ -6,8 +6,6 @@
   <title>QR Code Generator</title>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script>const QRCodeSVG = QRCode;</script>
-  <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -88,7 +86,7 @@
       gap: 1rem;
     }
 
-    #qrcode canvas, #qrcode img { border-radius: 8px; }
+    #qrcode svg { width: 256px; height: 256px; border-radius: 8px; }
 
     .download-buttons {
       display: flex;
@@ -214,7 +212,7 @@ createApp({
     const error = ref('');
     const generated = ref(false);
     const currentPayload = ref('');
-    let qrInstance = null;
+    const currentSvg = ref('');
 
     const f = reactive({
       url: '', text: '',
@@ -229,7 +227,7 @@ createApp({
       error.value = '';
       generated.value = false;
       currentPayload.value = '';
-      if (qrInstance) { qrInstance.clear(); qrInstance = null; }
+      currentSvg.value = '';
     }
 
     function buildPayload() {
@@ -271,46 +269,37 @@ createApp({
       }
     }
 
+    const QR_OPTS = {
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    };
+
     async function generate() {
       error.value = '';
       const [payload, err] = buildPayload();
       if (err) { error.value = err; return; }
 
-      generated.value = true;
+      const svg = await QRCode.toString(payload, { type: 'svg', ...QR_OPTS });
       currentPayload.value = payload;
+      currentSvg.value = svg;
+      generated.value = true;
       await nextTick();
-
-      const el = document.getElementById('qrcode');
-      el.innerHTML = '';
-      qrInstance = new QRCode(el, {
-        text: payload,
-        width: 256,
-        height: 256,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-      });
+      document.getElementById('qrcode').innerHTML = svg;
     }
 
-    function download() {
-      const canvas = document.querySelector('#qrcode canvas');
-      if (!canvas) return;
+    async function download() {
+      if (!currentPayload.value) return;
+      const dataUrl = await QRCode.toDataURL(currentPayload.value, { width: 256, ...QR_OPTS });
       const a = document.createElement('a');
       a.download = 'qrcode.png';
-      a.href = canvas.toDataURL('image/png');
+      a.href = dataUrl;
       a.click();
     }
 
-    async function downloadSvg() {
-      if (!currentPayload.value) return;
-      const svg = await QRCodeSVG.toString(currentPayload.value, {
-        type: 'svg',
-        width: 256,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
-        errorCorrectionLevel: 'M',
-      });
-      const blob = new Blob([svg], { type: 'image/svg+xml' });
+    function downloadSvg() {
+      if (!currentSvg.value) return;
+      const blob = new Blob([currentSvg.value], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.download = 'qrcode.svg';
