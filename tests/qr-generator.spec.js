@@ -13,7 +13,7 @@ async function clickGenerate(page) {
 }
 
 async function expectQRVisible(page) {
-  await expect(page.locator('#qrcode canvas')).toBeVisible();
+  await expect(page.locator('#qrcode svg')).toBeVisible();
 }
 
 async function expectDownload(page, buttonLabel, ext) {
@@ -127,6 +127,6 @@ test.describe('Validation', () => {
     await clickGenerate(page);
     await expectQRVisible(page);
     await selectType(page, 'text');
-    await expect(page.locator('#qrcode canvas')).not.toBeVisible();
+    await expect(page.locator('#qrcode svg')).not.toBeVisible();
   });
 });
